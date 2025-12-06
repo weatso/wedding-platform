@@ -1,0 +1,70 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// 1. Model Undangan (Setiap Project Wedding)
+model Invitation {
+  id            String   @id @default(uuid())
+  slug          String   @unique // contoh: "romeo-juliet" (untuk URL)
+  
+  // Data Mempelai Pria
+  groomName     String
+  groomNickname String
+  groomFather   String
+  groomMother   String
+  
+  // Data Mempelai Wanita
+  brideName     String
+  brideNickname String
+  brideFather   String
+  brideMother   String
+  
+  // Data Acara
+  eventDate     DateTime
+  eventTime     String
+  locationName  String
+  locationAddress String
+  mapUrl        String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relasi: Satu undangan punya banyak tamu
+  guests        Guest[]
+}
+
+// 2. Model Tamu (Guest)
+model Guest {
+  id            String   @id @default(uuid())
+  name          String
+  category      String   @default("Reguler") // VIP, Keluarga, Reguler
+  phoneNumber   String?  // Untuk kirim WA
+  
+  // Status Kehadiran
+  rsvpStatus    RsvpStatus @default(PENDING)
+  
+  // Fitur QR Code & Check-in
+  qrCode        String   @unique @default(uuid()) // Token unik QR
+  checkInTime   DateTime? // Jika null berarti belum datang
+  
+  // Relasi ke Undangan
+  invitationId  String
+  invitation    Invitation @relation(fields: [invitationId], references: [id])
+
+  createdAt     DateTime @default(now())
+}
+
+// Enum: Pilihan Status RSVP agar seragam
+enum RsvpStatus {
+  PENDING
+  ATTENDING
+  DECLINED
+}
