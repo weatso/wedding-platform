@@ -1,5 +1,3 @@
-// prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,18 +8,45 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// 1. Model Undangan (Setiap Project Wedding)
+// --- 1. ENUM & ROLE (BARU) ---
+enum Role {
+  DEVELOPER
+  ADMIN
+  CLIENT
+}
+
+enum RsvpStatus {
+  PENDING
+  ATTENDING
+  DECLINED
+}
+
+// --- 2. MODEL USER (BARU) ---
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String   // Nanti akan kita hash
+  role      Role     @default(CLIENT)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relasi: Satu User bisa memiliki banyak Undangan
+  invitations Invitation[]
+}
+
+// --- 3. MODEL INVITATION (UPDATE RELASI) ---
 model Invitation {
   id            String   @id @default(uuid())
-  slug          String   @unique // contoh: "romeo-juliet" (untuk URL)
+  slug          String   @unique 
   
-  // Data Mempelai Pria
+  // Data Mempelai
   groomName     String
   groomNickname String
   groomFather   String
   groomMother   String
   
-  // Data Mempelai Wanita
   brideName     String
   brideNickname String
   brideFather   String
@@ -37,34 +62,29 @@ model Invitation {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  // Relasi: Satu undangan punya banyak tamu
+  // --- RELASI KE USER (BARU) ---
+  // Kita buat optional (?) dulu agar data lama (Romeo Juliet) tidak error
+  userId        String?  
+  user          User?    @relation(fields: [userId], references: [id])
+
+  // Relasi ke Guest
   guests        Guest[]
 }
 
-// 2. Model Tamu (Guest)
+// --- 4. MODEL GUEST (TETAP) ---
 model Guest {
   id            String   @id @default(uuid())
   name          String
-  category      String   @default("Reguler") // VIP, Keluarga, Reguler
-  phoneNumber   String?  // Untuk kirim WA
+  category      String   @default("Reguler")
+  phoneNumber   String?  
   
-  // Status Kehadiran
   rsvpStatus    RsvpStatus @default(PENDING)
   
-  // Fitur QR Code & Check-in
-  qrCode        String   @unique @default(uuid()) // Token unik QR
-  checkInTime   DateTime? // Jika null berarti belum datang
+  qrCode        String   @unique @default(uuid())
+  checkInTime   DateTime? 
   
-  // Relasi ke Undangan
   invitationId  String
   invitation    Invitation @relation(fields: [invitationId], references: [id])
 
   createdAt     DateTime @default(now())
-}
-
-// Enum: Pilihan Status RSVP agar seragam
-enum RsvpStatus {
-  PENDING
-  ATTENDING
-  DECLINED
 }

@@ -1,4 +1,5 @@
 "use client";
+import QRCode from "react-qr-code";
 
 import { useState } from "react";
 import { Calendar, MapPin, Heart, Music } from "lucide-react";
@@ -115,56 +116,86 @@ export function InvitationClient({ data }: { data: Invitation }) {
                 </div>
             </section>
 
-            {/* --- FORMULIR RSVP (BARU) --- */}
-            <section className="py-12 px-6 bg-white border-t border-gray-100">
+            {/* --- RSVP SECTION & TICKET --- */}
+            <section className="py-12 px-6 bg-white border-t border-gray-100" id="rsvp-section">
                 <h2 className="text-center text-xl font-bold mb-8 uppercase tracking-widest text-slate-700">
-                    Konfirmasi Kehadiran
+                    {message && message.includes("Terima") ? "E-Ticket Anda" : "Konfirmasi Kehadiran"}
                 </h2>
                 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Hidden Input: ID Undangan */}
-                    <input type="hidden" name="invitationId" value={data.id} />
-                    <input type="hidden" name="slug" value={data.slug} />
-
-                    <div className="space-y-2">
-                        <Label>Nama Lengkap</Label>
-                        <Input name="name" placeholder="Nama Anda" required />
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label>Nomor WhatsApp</Label>
-                        <Input name="phone" placeholder="08xxx" type="tel" required />
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label>Apakah akan hadir?</Label>
-                        <RadioGroup defaultValue="ATTENDING" name="status" className="flex gap-4">
-                            <div className="flex items-center space-x-2 border p-3 rounded-lg w-full justify-center has-[:checked]:bg-green-50 has-[:checked]:border-green-500 cursor-pointer transition-all">
-                                <RadioGroupItem value="ATTENDING" id="r1" />
-                                <Label htmlFor="r1" className="cursor-pointer">Hadir</Label>
-                            </div>
-                            <div className="flex items-center space-x-2 border p-3 rounded-lg w-full justify-center has-[:checked]:bg-red-50 has-[:checked]:border-red-500 cursor-pointer transition-all">
-                                <RadioGroupItem value="DECLINED" id="r2" />
-                                <Label htmlFor="r2" className="cursor-pointer">Maaf</Label>
-                            </div>
-                        </RadioGroup>
-                    </div>
-
-                    <Button 
-                        type="submit" 
-                        className="w-full bg-slate-900 hover:bg-slate-800 h-12 text-lg" 
-                        disabled={isSubmitting}
-                    >
-                        {isSubmitting ? "Mengirim..." : "Kirim Konfirmasi"}
-                    </Button>
-
-                    {/* Pesan Feedback */}
-                    {message && (
-                        <div className={`p-4 rounded-lg text-center text-sm animate-in fade-in slide-in-from-bottom-2 ${message.includes("Terima") ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                            {message}
+                {/* LOGIC: Jika Pesan Sukses Muncul -> Tampilkan Tiket QR */}
+                {message && message.includes("Terima") ? (
+                    <div className="max-w-sm mx-auto bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-8 text-center animate-in zoom-in duration-500">
+                        <div className="mb-6 bg-white p-4 rounded-lg inline-block shadow-sm">
+                            {/* QR CODE GENERATOR */}
+                            {/* Value ini nanti discan oleh panitia */}
+                            <QRCode 
+                                value={`GUEST-${data.slug}-${new Date().getTime()}`} 
+                                size={180}
+                                level="M"
+                                fgColor="#1e293b" 
+                            />
                         </div>
-                    )}
-                </form>
+                        <h3 className="text-xl font-bold text-slate-800 mb-2">SCAN ME</h3>
+                        <p className="text-sm text-slate-500 mb-6">Tunjukkan QR Code ini di meja penerima tamu.</p>
+                        
+                        <div className="bg-green-100 text-green-800 p-3 rounded-lg text-sm font-medium mb-4">
+                            ✅ Data Tersimpan
+                        </div>
+
+                        <Button 
+                            variant="outline" 
+                            className="w-full border-slate-400 text-slate-700 hover:bg-slate-100"
+                            onClick={() => window.print()} 
+                        >
+                            Simpan Tiket
+                        </Button>
+                    </div>
+                ) : (
+                    /* ELSE: Tampilkan Form Biasa */
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        <input type="hidden" name="invitationId" value={data.id} />
+                        <input type="hidden" name="slug" value={data.slug} />
+
+                        <div className="space-y-2">
+                            <Label>Nama Lengkap</Label>
+                            <Input name="name" placeholder="Nama Anda" required />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Nomor WhatsApp</Label>
+                            <Input name="phone" placeholder="08xxx" type="tel" required />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Apakah akan hadir?</Label>
+                            <RadioGroup defaultValue="ATTENDING" name="status" className="flex gap-4">
+                                <div className="flex items-center space-x-2 border p-3 rounded-lg w-full justify-center has-[:checked]:bg-green-50 has-[:checked]:border-green-500 cursor-pointer transition-all">
+                                    <RadioGroupItem value="ATTENDING" id="r1" />
+                                    <Label htmlFor="r1" className="cursor-pointer">Hadir</Label>
+                                </div>
+                                <div className="flex items-center space-x-2 border p-3 rounded-lg w-full justify-center has-[:checked]:bg-red-50 has-[:checked]:border-red-500 cursor-pointer transition-all">
+                                    <RadioGroupItem value="DECLINED" id="r2" />
+                                    <Label htmlFor="r2" className="cursor-pointer">Maaf</Label>
+                                </div>
+                            </RadioGroup>
+                        </div>
+
+                        <Button 
+                            type="submit" 
+                            className="w-full bg-slate-900 hover:bg-slate-800 h-12 text-lg" 
+                            disabled={isSubmitting}
+                        >
+                            {isSubmitting ? "Mengirim..." : "Kirim Konfirmasi"}
+                        </Button>
+
+                        {/* Pesan Error (Jika ada) */}
+                        {message && !message.includes("Terima") && (
+                            <div className="p-4 rounded-lg text-center text-sm bg-red-100 text-red-800">
+                                {message}
+                            </div>
+                        )}
+                    </form>
+                )}
             </section>
 
             {/* Floating Music Button */}
