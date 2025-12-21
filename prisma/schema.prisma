@@ -1,3 +1,5 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,11 +10,10 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// --- 1. ENUM & ROLE (BARU) ---
+// --- ENUMS ---
 enum Role {
-  DEVELOPER
-  ADMIN
-  CLIENT
+  ADMIN   // Anda (Vendor)
+  CLIENT  // Mempelai (Hanya lihat tamu)
 }
 
 enum RsvpStatus {
@@ -21,70 +22,97 @@ enum RsvpStatus {
   DECLINED
 }
 
-// --- 2. MODEL USER (BARU) ---
-model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String   // Nanti akan kita hash
-  role      Role     @default(CLIENT)
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relasi: Satu User bisa memiliki banyak Undangan
-  invitations Invitation[]
+enum ThemeType {
+  RUSTIC_A
+  LUXURY_GOLD
+  MINIMALIST_B
+  CUSTOM_CODE // Jika undangan ini codingan khusus/mahal
 }
 
-// --- 3. MODEL INVITATION (UPDATE RELASI) ---
+// --- 1. USER (Hanya Vendor & Client) ---
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   // Wajib di-hash!
+  name      String
+  role      Role     @default(CLIENT)
+  
+  // Client bisa punya 1 atau lebih undangan (biasanya 1)
+  invitations Invitation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// --- 2. INVITATION (Pusat Data) ---
 model Invitation {
   id            String   @id @default(uuid())
-  slug          String   @unique 
+  slug          String   @unique // cth: romeo-juliet
   
-  // Data Mempelai
+  // Konfigurasi Tampilan
+  theme         ThemeType @default(RUSTIC_A)
+  isActive      Boolean   @default(true) // Jika belum lunas, bisa dimatikan
+  
+  // Data Mempelai (Diinput oleh Vendor)
   groomName     String
-  groomNickname String
+  groomNick     String
   groomFather   String
   groomMother   String
   
   brideName     String
-  brideNickname String
+  brideNick     String
   brideFather   String
   brideMother   String
   
-  // Data Acara
+  // Data Acara (Bisa dibuat JSON jika acara ada banyak sesi)
   eventDate     DateTime
-  eventTime     String
-  locationName  String
-  locationAddress String
+  location      String
   mapUrl        String?
+  
+  // Relasi ke Client (Pemilik Acara)
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id])
+
+  guests        Guest[]
+  wishes        Wish[]
   
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-
-  // --- RELASI KE USER (BARU) ---
-  // Kita buat optional (?) dulu agar data lama (Romeo Juliet) tidak error
-  userId        String?  
-  user          User?    @relation(fields: [userId], references: [id])
-
-  // Relasi ke Guest
-  guests        Guest[]
 }
 
-// --- 4. MODEL GUEST (TETAP) ---
+// --- 3. GUEST (Tamu Undangan) ---
 model Guest {
   id            String   @id @default(uuid())
   name          String
-  category      String   @default("Reguler")
-  phoneNumber   String?  
+  whatsapp      String   // Untuk kirim link
+  category      String?  // cth: VIP, Keluarga, Teman Kantor
+  
+  // TOKEN RAHASIA (Ini kuncinya!)
+  token         String   @unique @default(cuid()) // cth: clq2... (acak)
   
   rsvpStatus    RsvpStatus @default(PENDING)
+  pax           Int        @default(1) // Jumlah orang yang dibawa
   
-  qrCode        String   @unique @default(uuid())
-  checkInTime   DateTime? 
-  
+  // Tamu melihat undangan mana?
   invitationId  String
   invitation    Invitation @relation(fields: [invitationId], references: [id])
 
+  // Relasi ke Ucapan (1 Tamu bisa kirim 1 ucapan)
+  wishes        Wish[]
+
+  createdAt     DateTime @default(now())
+}
+
+// --- 4. WISH (Ucapan & Doa) ---
+model Wish {
+  id            String   @id @default(uuid())
+  message       String
+  
+  guestId       String
+  guest         Guest    @relation(fields: [guestId], references: [id])
+  
+  invitationId  String
+  invitation    Invitation @relation(fields: [invitationId], references: [id])
+  
   createdAt     DateTime @default(now())
 }

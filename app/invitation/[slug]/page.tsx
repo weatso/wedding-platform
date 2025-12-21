@@ -1,27 +1,40 @@
-import { prisma } from "@/lib/db"; // 1. Import koneksi DB
-import { notFound } from "next/navigation"; // 2. Untuk handle 404
-import { InvitationClient } from "./client-page"; // 3. Kita akan pisah UI interaktif ke file baru
+// app/invitation/[slug]/page.tsx
+import { prisma } from "@/lib/db";
+import { notFound } from "next/navigation";
+import { getTemplateComponent } from "@/components/templates/registry"; // Import helper tadi
 
-// PENTING: Component ini Async karena harus tunggu database
-// Props 'params' di Next.js 15 harus di-await (perubahan baru)
-export default async function InvitationPage({ params }: { params: Promise<{ slug: string }> }) {
-  
-  // 1. Tangkap slug dari URL (misal: "romeo-juliet")
+export default async function InvitationPage({ params, searchParams }: any) {
   const { slug } = await params;
+  const token = (await searchParams).u;
 
-  // 2. Query ke Database Supabase
-  const data = await prisma.invitation.findUnique({
-    where: {
-      slug: slug, // Cari baris yang slug-nya sama
-    },
+  // 1. Ambil Data
+  const invitation = await prisma.invitation.findUnique({
+    where: { slug },
+    include: { guests: true } // Sesuaikan kebutuhan
   });
 
-  // 3. Jika data tidak ada di DB, lempar ke halaman 404
-  if (!data) {
-    return notFound();
+  if (!invitation) return notFound();
+
+  // 2. Cek Tamu (Logic Security Private)
+  let currentGuest = null;
+  if (token) {
+    currentGuest = await prisma.guest.findUnique({
+      where: { token, invitationId: invitation.id }
+    });
   }
 
-  // 4. Jika ada, kirim data ke Component Client (UI)
-  // Kita harus memisahkannya karena halaman ini (Server) tidak boleh pakai useState
-  return <InvitationClient data={data} />;
+  // 3. AMBIL COMPONENT SECARA DINAMIS
+  // Database menyimpan string enum: "LUXURY_GOLD"
+  const TemplateComponent = getTemplateComponent(invitation.theme);
+
+  // 4. Render
+  return (
+    <main>
+        {/* Pass data ke template yang dipilih */}
+        <TemplateComponent 
+            data={invitation} 
+            guest={currentGuest} 
+        />
+    </main>
+  );
 }
