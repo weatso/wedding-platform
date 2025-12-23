@@ -3,21 +3,20 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { CopyButton } from "@/components/ui/copy-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Users, 
   Trash2, 
-  Copy, 
   MessageCircle, 
   CheckCircle, 
   XCircle, 
   Clock, 
   LogOut 
 } from "lucide-react";
-import { deleteGuest } from "./actions"; 
-import GuestForm from "./GuestForm";     
+import { deleteGuest } from "./actions";
+import GuestForm from "./GuestForm";
 import { signOut } from "@/auth";
+import { CopyButton } from "@/components/ui/copy-button"; // <-- IMPORT BARU
 
 export const dynamic = 'force-dynamic';
 
@@ -60,7 +59,6 @@ export default async function DashboardPage() {
             <div>
                 <h1 className="text-2xl font-bold text-slate-900">Wedding Dashboard</h1>
                 <p className="text-slate-500 text-sm mt-1">
-                  {/* PERBAIKAN: Menggunakan groomNick & brideNick sesuai schema Anda */}
                   Mempelai: <span className="font-semibold text-slate-700">{invitation.groomNick} & {invitation.brideNick}</span>
                 </p>
             </div>
@@ -82,7 +80,7 @@ export default async function DashboardPage() {
             </div>
         </header>
 
-        {/* --- STATISTIK CARDS --- */}
+        {/* --- STATISTIK --- */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard icon={<Users className="text-blue-600"/>} label="Total Tamu" value={totalGuests} bg="bg-blue-50" border="border-blue-100" />
             <StatCard icon={<CheckCircle className="text-green-600"/>} label="Hadir" value={attending} bg="bg-green-50" border="border-green-100" />
@@ -121,7 +119,6 @@ export default async function DashboardPage() {
                                         <div className="flex flex-col items-center gap-2">
                                             <Users className="w-8 h-8 text-slate-200" />
                                             <p>Belum ada tamu.</p>
-                                            <p className="text-xs">Tambahkan tamu di atas untuk mendapatkan link.</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -132,7 +129,7 @@ export default async function DashboardPage() {
                                     const waUrl = `https://wa.me/${guest.whatsapp?.replace(/^0/, '62').replace(/\D/g, '')}?text=${encodeURIComponent(waMessage)}`;
 
                                     return (
-                                    <tr key={guest.id} className="hover:bg-slate-50 transition-colors group">
+                                    <tr key={guest.id} className="hover:bg-slate-50 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="font-medium text-slate-900">{guest.name}</div>
                                             <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
@@ -142,28 +139,21 @@ export default async function DashboardPage() {
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">
-                                                <div className="relative flex-1">
-                                                  <input 
-                                                    readOnly 
-                                                    value={uniqueLink} 
-                                                    className="text-xs bg-slate-50 border border-slate-200 rounded px-2 py-1.5 w-full text-slate-600 truncate focus:outline-none focus:ring-1 focus:ring-blue-500" 
-                                                  />
-                                                </div>
+                                                <input 
+                                                  readOnly 
+                                                  value={uniqueLink} 
+                                                  className="text-xs bg-slate-50 border border-slate-200 rounded px-2 py-1.5 flex-1 text-slate-600 truncate focus:outline-none" 
+                                                />
                                                 
-                                                <a 
-                                                  href={waUrl} 
-                                                  target="_blank" 
-                                                  rel="noopener noreferrer"
-                                                  title="Kirim via WhatsApp"
-                                                >
-                                                  <Button size="icon" variant="outline" className="h-8 w-8 text-green-600 border-green-200 hover:bg-green-50 hover:border-green-300">
+                                                {/* Tombol Kirim WA */}
+                                                <a href={waUrl} target="_blank" rel="noopener noreferrer">
+                                                  <Button size="icon" variant="outline" className="h-8 w-8 text-green-600 border-green-200 hover:bg-green-50">
                                                       <MessageCircle className="w-4 h-4" />
                                                   </Button>
                                                 </a>
 
-                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400 hover:text-slate-600" title="Copy Link">
-                                                    <Copy className="w-4 h-4" />
-                                                </Button>
+                                                {/* PERBAIKAN: Menggunakan Component Khusus agar tidak bug */}
+                                                <CopyButton text={uniqueLink} />
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-center">
@@ -176,13 +166,8 @@ export default async function DashboardPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <form
-                                                action={async () => {
-                                                  "use server";
-                                                  await deleteGuest(guest.id);
-                                                }}
-                                              >
-                                              <Button size="icon" variant="ghost" className="h-8 w-8 text-red-300 hover:text-red-600 hover:bg-red-50 transition-colors">
+                                            <form action={async () => { "use server"; await deleteGuest(guest.id); }}>
+                                              <Button size="icon" variant="ghost" className="h-8 w-8 text-red-300 hover:text-red-600 hover:bg-red-50">
                                                   <Trash2 className="w-4 h-4" />
                                               </Button>
                                             </form>
