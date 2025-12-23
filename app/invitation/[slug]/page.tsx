@@ -1,40 +1,47 @@
 // app/invitation/[slug]/page.tsx
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
-import { getTemplateComponent } from "./components/templates/registry";
+import { getTemplate } from "@/components/templates/registry"; // <-- Import Registry
 
-export default async function InvitationPage({ params, searchParams }: any) {
-  const { slug } = await params;
-  const token = (await searchParams).u;
+interface PageProps {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ u?: string }>;
+}
 
-  // 1. Ambil Data
+export default async function InvitationPage(props: PageProps) {
+  const params = await props.params;
+  const searchParams = await props.searchParams;
+
+  const slug = params.slug;
+  const token = searchParams.u;
+
+  // 1. Ambil Data Undangan
   const invitation = await prisma.invitation.findUnique({
     where: { slug },
-    include: { guests: true } // Sesuaikan kebutuhan
+    include: {
+        wishes: { orderBy: { createdAt: 'desc' }, take: 10 }
+    }
   });
 
   if (!invitation) return notFound();
 
-  // 2. Cek Tamu (Logic Security Private)
-  let currentGuest = null;
+  // 2. Ambil Data Tamu (Jika ada token)
+  let guest = null;
   if (token) {
-    currentGuest = await prisma.guest.findUnique({
-      where: { token, invitationId: invitation.id }
+    guest = await prisma.guest.findUnique({
+      where: { token },
     });
   }
 
-  // 3. AMBIL COMPONENT SECARA DINAMIS
-  // Database menyimpan string enum: "LUXURY_GOLD"
-  import { getTemplateComponent } from "./components/templates/registry";
+  // 3. Tentukan Template berdasarkan Database
+  // invitation.theme berisi "RUSTIC_A", "LUXURY_GOLD", dll.
+  const TemplateComponent = getTemplate(invitation.theme);
 
-  // 4. Render
+  // 4. Render Template yang dipilih
   return (
-    <main>
-        {/* Pass data ke template yang dipilih */}
-        <TemplateComponent 
-            data={invitation} 
-            guest={currentGuest} 
-        />
-    </main>
+    <TemplateComponent 
+      invitation={invitation} 
+      guest={guest} 
+    />
   );
 }
