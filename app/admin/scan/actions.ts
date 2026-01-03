@@ -4,29 +4,50 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 
-// READ: Cari tamu by Kode Unik
-export async function getGuestByCode(code: string) {
+// Helper: Ambil Nama Acara untuk Judul Scanner
+export async function getEventDetail(invitationId: string) {
+    const inv = await prisma.invitation.findUnique({
+        where: { id: invitationId },
+        select: { groomNick: true, brideNick: true }
+    });
+    return inv;
+}
+
+// 1. CARI TAMU (Dengan Validasi Event ID)
+export async function getGuestByCode(code: string, eventId?: string) {
     const session = await auth();
-    if (!session?.user) return { error: "Silakan login terlebih dahulu." };
+    if (!session?.user) return { error: "Login required" };
+    if (!code) return { error: "Kode kosong" };
 
-    if (!code) return { error: "Kode kosong." };
-
-    const guest = await prisma.guest.findUnique({
-        where: { guestCode: code }
+    // Cari tamu by Code atau Token
+    const guest = await prisma.guest.findFirst({
+        where: {
+            OR: [
+                { guestCode: code }, 
+                { token: code }
+            ]
+        }
     });
 
-    if (!guest) return { error: "Kode Tamu Tidak Ditemukan." };
+    if (!guest) return { error: "Tamu tidak ditemukan." };
+
+    // VALIDASI PENTING: Cek apakah tamu ini milik acara yang sedang discan?
+    if (eventId && guest.invitationId !== eventId) {
+        return { 
+            error: "SALAH ACARA! Tamu ini terdaftar di undangan lain, bukan acara ini." 
+        };
+    }
 
     return { guest };
 }
 
-// WRITE: Check-in Tamu
+// 2. CHECK-IN
 export async function checkInGuest(guestId: string, actualPax: number) {
     const session = await auth();
     if (!session?.user) return { error: "Unauthorized" };
 
     try {
-        await prisma.guest.update({
+        const updated = await prisma.guest.update({
             where: { id: guestId },
             data: {
                 checkInTime: new Date(),
@@ -34,8 +55,8 @@ export async function checkInGuest(guestId: string, actualPax: number) {
             }
         });
 
-        revalidatePath("/dashboard/live"); // Update dashboard monitoring
-        return { success: true };
+        revalidatePath("/dashboard/live");
+        return { success: true, guestName: updated.name };
     } catch (e) {
         console.error(e);
         return { error: "Gagal menyimpan data." };

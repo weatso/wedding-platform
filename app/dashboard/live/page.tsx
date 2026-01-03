@@ -7,15 +7,23 @@ import { Users, Clock, ArrowLeft, Home } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-// Menerima Search Params (untuk menangkap ?id=...)
-export default async function LiveDashboard({ searchParams }: { searchParams: { id?: string } }) {
+// 1. Definisikan Tipe Props (Next.js 15: searchParams adalah Promise)
+type Props = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+export default async function LiveDashboard(props: Props) {
   const session = await auth();
   if (!session) redirect("/login");
 
-  const userRole = session.user.role; // ADMIN, USHER, CLIENT
-  let invitationId = null;
+  // 2. AWAIT searchParams sebelum digunakan
+  const searchParams = await props.searchParams;
+  const paramId = typeof searchParams.id === 'string' ? searchParams.id : undefined;
 
-  // LOGIKA PENENTUAN ID UNDANGAN
+  const userRole = session.user.role; 
+  let invitationId: string | undefined = undefined;
+
+  // --- LOGIKA PENENTUAN ID UNDANGAN ---
   if (userRole === "CLIENT") {
       // Jika Client, cari undangan miliknya sendiri
       const myInv = await prisma.invitation.findFirst({
@@ -25,40 +33,48 @@ export default async function LiveDashboard({ searchParams }: { searchParams: { 
       invitationId = myInv?.id;
   } else if (userRole === "ADMIN" || userRole === "USHER") {
       // Jika Admin/Usher, ambil dari URL parameter (?id=xxx)
-      invitationId = searchParams.id;
+      invitationId = paramId;
   }
 
-  // Jika ID tidak ketemu/valid
+  // --- VALIDASI ID ---
   if (!invitationId) {
       return (
         <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 text-center">
             <h1 className="text-xl font-bold text-slate-800 mb-2">Data Tidak Ditemukan</h1>
-            <p className="text-slate-500 mb-6">Anda tidak memiliki akses ke undangan ini atau ID salah.</p>
+            <p className="text-slate-500 mb-6">
+                {userRole === "CLIENT" 
+                    ? "Anda belum membuat data undangan." 
+                    : "ID Acara tidak valid atau belum dipilih dari Dashboard."}
+            </p>
             <Link href={userRole === 'USHER' ? "/usher" : "/dashboard"}>
-                <Button><ArrowLeft className="w-4 h-4 mr-2"/> Kembali ke Dashboard</Button>
+                <Button variant="outline"><ArrowLeft className="w-4 h-4 mr-2"/> Kembali ke Dashboard</Button>
             </Link>
         </div>
       );
   }
 
-  // QUERY DATA LIVE
+  // --- QUERY DATABASE ---
   const inv = await prisma.invitation.findUnique({
     where: { id: invitationId },
     include: { 
         guests: { 
-            where: { checkInTime: { not: null } }, // Hanya ambil yang sudah checkin
+            where: { checkInTime: { not: null } }, // Hanya ambil yang sudah check-in
             orderBy: { checkInTime: 'desc' }      // Urutkan dari yang terbaru
         } 
     }
   });
 
-  if (!inv) return <div className="p-8 text-center">Data Undangan tidak ditemukan.</div>;
+  if (!inv) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500">
+            <p>Data Undangan tidak ditemukan di database.</p>
+        </div>
+      );
+  }
 
-  // Hitung Statistik
+  // --- HITUNG STATISTIK ---
   const totalGuestsCheckIn = inv.guests.length; 
   const totalPaxCheckIn = inv.guests.reduce((sum, g) => sum + g.actualPax, 0); 
-
-  // Tentukan Link Kembali berdasarkan Role
   const backLink = userRole === 'USHER' ? "/usher" : "/dashboard";
 
   return (
@@ -159,7 +175,6 @@ export default async function LiveDashboard({ searchParams }: { searchParams: { 
             )}
         </CardContent>
       </Card>
-
     </div>
   );
 }
